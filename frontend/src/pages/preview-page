@@ -1,0 +1,15 @@
+import React from 'react';
+
+import { getSavedUrls } from '../lib/api';
+
+function PreviewPage() {
+    React.useEffect(() => {
+        const { data } = getSavedUrls();
+    });
+
+    return (
+
+    );
+}
+
+export default PreviewPage;
