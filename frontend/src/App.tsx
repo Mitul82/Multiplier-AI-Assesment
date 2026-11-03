@@ -1,71 +1,74 @@
-import { useCallback, useState } from 'react';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 
+import { AuthProvider, useAuth } from './contexts/auth-context';
 import LoginPage from './pages/login-page';
-import type { Session } from './pages/login-page';
-import type { User } from './lib/api';
+import PreviewPage from './pages/preview-page';
 
-function isUser(value: unknown): value is User {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'id' in value &&
-    'name' in value &&
-    'email' in value &&
-    typeof value.id === 'string' &&
-    typeof value.name === 'string' &&
-    typeof value.email === 'string'
-  );
+const toastOptions = {
+    success: {
+        duration: 5000,
+        style: {
+          background: '#ffffff',
+          color: '#30f94b'
+        },
+        iconTheme: {
+          primary: '#365613',
+          secondary: '#30f94b'
+        }
+      },
+      error: {
+        duration: 5000,
+        style: {
+          background: '#ffff',
+          color: '#cb1010'
+        },
+        iconTheme: {
+          primary: '#365613',
+          secondary: '#cb1010'
+        }
+    }
 }
 
-function readSession(): Session | null {
-  const token = window.localStorage.getItem('accessToken');
-  const savedUser = window.localStorage.getItem('currentUser');
+function PublicRoute() {
+    const { isAuthenticated } = useAuth();
 
-  if (!token || !savedUser) {
-    return null;
-  }
+    return isAuthenticated ? <Navigate to="/library" replace /> : <LoginPage />;
+}
 
-  try {
-    const user: unknown = JSON.parse(savedUser);
-    if (isUser(user)) {
-      return { token, user };
+function ProtectedRoute() {
+    const { isAuthenticated, isLoading } = useAuth();
+
+    if (isLoading) {
+        return (
+            <main className="grid min-h-screen place-items-center bg-stone-50 text-sm text-stone-500">
+                Checking your session…
+            </main>
+        );
     }
-  } catch {
-    window.localStorage.removeItem('currentUser');
-    window.localStorage.removeItem('accessToken');
-  }
 
-  window.localStorage.removeItem('currentUser');
-  window.localStorage.removeItem('accessToken');
-  return null;
+    return isAuthenticated ? <PreviewPage /> : <Navigate to="/" replace />;
+}
+
+function AppRoutes() {
+    return (
+        <Routes>
+            <Route path="/" element={<PublicRoute />} />
+            <Route path="/library" element={<ProtectedRoute />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+    );
 }
 
 function App() {
-  const [session, setSession] = useState<Session | null>(readSession);
-
-  const handleSignOut = useCallback(() => {
-    window.localStorage.removeItem('accessToken');
-    window.localStorage.removeItem('currentUser');
-    setSession(null);
-  }, []);
-
-  const handleAuthenticated = useCallback((nextSession: Session) => {
-    window.localStorage.setItem('accessToken', nextSession.token);
-    window.localStorage.setItem('currentUser', JSON.stringify(nextSession.user));
-    setSession(nextSession);
-  }, []);
-
-  return (
-    <>
-      <Toaster position="bottom-right" />
-      <LoginPage
-        session={session}
-        onAuthenticated={handleAuthenticated}
-        onSignOut={handleSignOut}
-      />
-    </>
-  );
+    return (
+        <AuthProvider>
+            <BrowserRouter>
+                <Toaster position="bottom-center" toastOptions={ toastOptions } />
+                <AppRoutes />
+            </BrowserRouter>
+        </AuthProvider>
+    );
 }
 
 export default App;
